@@ -4,7 +4,21 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
+variables:
+  toolsDirectory: '$(Agent.TempDirectory)/tools'
+
 steps:
+# Dynamically compute the version
+- script: |
+    YEAR=$(date +%Y)
+    MONTH=$(date +%m)
+    DAY=$(date +%d)
+    REV=$(Build.BuildId)
+    VERSION="1.0.0-$YEAR$MONTH$DAY.$REV"
+    echo "Computed version: $VERSION"
+    echo "##vso[task.setvariable variable=version]$VERSION"
+  displayName: 'Compute Version'
+
 - task: NodeTool@0
   inputs:
     versionSpec: '20.x'
@@ -16,3 +30,19 @@ steps:
     # npm run test
     # npm run build
   displayName: 'Install Dependencies'
+
+# Package and publish artifacts with versioning
+- script: |
+    mkdir -p $(Build.ArtifactStagingDirectory)
+    # Assuming you have files you want to package, such as build output
+    cp -R * $(Build.ArtifactStagingDirectory)
+    az artifacts universal publish \
+      --organization https://dev.azure.com/CloudBuildersTech/ \
+      --project "CB-CommonProject" \
+      --scope project \
+      --feed artifact \
+      --name my-first-package \
+      --version $(version) \
+      --description "Welcome to Universal Packages" \
+      --path $(Build.ArtifactStagingDirectory)
+  displayName: 'Publish Universal Package to Azure Artifacts'
