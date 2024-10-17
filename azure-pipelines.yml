@@ -31,6 +31,11 @@ steps:
     # npm run build
   displayName: 'Install Dependencies'
 
+# Authenticate with Azure DevOps using the PAT token
+- script: |
+    echo $(naga-pat) | az devops login --organization https://dev.azure.com/CloudBuildersTech
+  displayName: 'Authenticate Azure DevOps CLI'
+
 # Package and publish artifacts with versioning
 - script: |
     mkdir -p $(Build.ArtifactStagingDirectory)
