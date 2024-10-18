@@ -1,1 +1,63 @@
+# Scheduled Scans
+schedules:
+  - cron: '*/5 * * * *'  # Every 5 minutes
+    displayName: "Run Every 5 Minutes"
+    branches:
+      include:
+        - main
+    always: true
 
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- checkout: self
+
+# Debugging: Print the current branch and PR information for better logging
+- script: |
+    echo "Triggered by branch or PR:"
+    echo $(Build.SourceBranch)
+  displayName: 'Print Source Branch Info'
+
+# Step 1: Prepare SonarCloud analysis
+- task: SonarCloudPrepare@2
+  displayName: 'Prepare analysis on SonarCloud'
+  inputs:
+    SonarCloud: 'sonarcloud'  # Use your service connection
+    organization: 'nagaraju123'  # Your SonarCloud organization
+    scannerMode: 'CLI'
+    configMode: 'manual'
+    cliProjectKey: 'nagaraju123_nagaraju'
+    cliProjectName: 'nagaraju'
+    cliSources: '.'
+
+# Step 2: Run the analysis
+- task: SonarCloudAnalyze@2
+  displayName: 'Run Code Analysis'
+
+# Step 3: Publish the analysis results (Quality Gate)
+- task: SonarCloudPublish@2
+  displayName: 'Publish Quality Gate Result'
+
+# Add the SonarQube Report Generator after publishing the analysis results
+
+# Optional: Notification to Microsoft Teams or elsewhere
+- script: |
+    # Get the quality gate status from SonarCloud API
+    PROJECT_KEY="nagaraju123_nagaraju"
+    
+    QUALITY_GATE_STATUS=$(curl -s -u "token:<your_sonarcloud_token>" \
+        "https://sonarcloud.io/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" | jq -r '.projectStatus.status')
+
+    # Prepare the message
+    if [ "$QUALITY_GATE_STATUS" == "OK" ]; then
+        MESSAGE="SonarCloud Analysis completed successfully! Quality Gate: **Passed**"
+    else
+        MESSAGE="SonarCloud Analysis completed with issues! Quality Gate: **Failed**"
+    fi
+
+    # Send the message to Teams (ensure your webhook is correct)
+    curl -H 'Content-Type: application/json' -d "{
+      \"text\": \"$MESSAGE\"
+    }" https://cloudbuilderstech.webhook.office.com/webhookb2/7d53a80b-03de-48c6-90f1-2b2041eb38fe@929dcd64-6559-420a-9aea-8dd813789df3/IncomingWebhook/de4152203086436088b44dd81dac1821/59ada105-6c25-4380-942f-95cd29c4c4c7/V2LxdswtZx_1wJPlqw8_VWu47T6FgnhioIOv3uaRtfpYM1
+  displayName: 'Notify Teams with Results'
